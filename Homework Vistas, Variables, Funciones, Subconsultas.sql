@@ -327,7 +327,7 @@ BEGIN
     WHERE EmpleadoID = @EmpleadoID;
 
 END;
-
+GO;
 -- Procedimiento que llama a una vista:
 --Un procedimiento puede utilizar una vista para recuperar datos específicos, como en este ejemplo donde se obtienen los detalles de un proyecto.
 CREATE PROCEDURE ObtenerDetallesProyecto
@@ -337,7 +337,7 @@ BEGIN
     SELECT * FROM VistaDetallesProyecto
     WHERE ProyectoID = @ProyectoID;
 END;
-
+GO;
 
 
 ---Subconsultas autónomas
@@ -355,7 +355,7 @@ WHERE ProyectoID IN (
         FROM AsignacionesProyecto
     )
 );
-
+GO;
 --Subconsultas correlacionadas
 /*Listar todos los empleados junto con el total de horas asignadas a ellos en proyectos, 
 pero solo para aquellos empleados que han trabajado más horas que 
@@ -391,7 +391,7 @@ Bienvenido a este ejercicio práctico centrado en la gestión y análisis de dat
 En este conjunto de tareas, nos enfocaremos en el entorno de la startup ficticia: StartupSoftware, especializada en el desarrollo de soluciones de software, la cual hemos desarrollado durante la clase. 
 StartupSoftware cuenta con una base de datos que incluye información detallada sobre clientes, proyectos, empleados, asignaciones de trabajo y facturación. 
 A través de los ejercicios propuestos, aprenderás cómo manipular y extraer información valiosa de esta base de datos, empleando diversas funcionalidades de SQL Server.*/
-SELECT * FROM 
+
 --1 Vista de proyectos con fechas de inicio y fin:
 --Crea una vista llamada VistaFechasProyectos que muestre los nombres de los proyectos con sus respectivas fechas de inicio y fin.
 
@@ -407,43 +407,38 @@ SELECT * FROM VistaFechasProyectos;
 
 --2 Variables de resumen de empleados:
 --Utiliza variables locales para calcular el salario total y --el número promedio de horas asignadas a proyectos por empleado.
-DECLARE @SalarioTotal DECIMAL(10,2);
-DECLARE @PromedioHoras DECIMAL(10,2);
+DECLARE @SalarioTotal DECIMAL(10,2), @PromedioHoras INT, @EmpleadoID INT;
+SET @EmpleadoID = 1
 
 SELECT
 	@SalarioTotal = SUM(E.Salario),
 	@PromedioHoras = AVG(AP.HorasAsignadas)
 FROM 
-	Empleados E, 
-	AsignacionesProyecto AP
-WHERE E.EmpleadoID = AP.EmpleadoID
+	AsignacionesProyecto AP,
+	Empleados E
+WHERE @EmpleadoID = AP.EmpleadoID AND @EmpleadoID = E.EmpleadoID;
 
 SELECT 
+	@EmpleadoID AS EmpleadoID,
 	@SalarioTotal AS [Salario Total], 
-	@PromedioHoras AS [Promedio Horas]
-
+	@PromedioHoras AS [Promedio Horas P/Empleado]
 
 --3 Función UDF para contar proyectos por cliente:
 --Crea una función UDF que reciba un ClienteID y devuelva el número total de proyectos asociados a ese cliente.
-CREATE PROCEDURE ContarProyectosPorCliente
-	@ClienteID INT,
-	@ProyectosAsignados INT OUTPUT
+CREATE FUNCTION ContarProyectosPorCliente(@ClienteID INT)
+RETURNS INT
 AS
-BEGIN
-	SELECT @ProyectosAsignados = COUNT(*) 
+BEGIN 
+	DECLARE @TotalProyectos INT;
+	SELECT @TotalProyectos = COUNT(*)
 	FROM Proyectos
-	WHERE ClienteID = @ClienteID;
+	WHERE ClienteID = @ClienteID
+	RETURN @TotalProyectos
 END;
-
+GO;
 --Para ejecutar se utiliza:
-DECLARE @TotalProyectos INT;
-EXEC 
-	ContarProyectosPorCliente @ClienteID = 4, 
-	@ProyectosAsignados = @TotalProyectos OUTPUT;
-
-SELECT @TotalProyectos AS 'Total de Proyectos';
-
-
+SELECT [dbo].[ContarProyectosPorCliente](1) AS TotalProyectosCliente
+GO;
 --4 Procedimiento almacenado para detalles del empleado:
 --Desarrolla un procedimiento almacenado llamado DetallesEmpleado que, dado un EmpleadoID, devuelva su nombre, posición y salario.
 CREATE PROCEDURE DetallesEmpleado
@@ -458,7 +453,7 @@ BEGIN
 	WHERE EmpleadoID = @EmpleadoID
 END
 
-EXEC DetallesEmpleado @EmpleadoID = 4;
+EXEC DetallesEmpleado 4;
 
 
 --5 Subconsulta para proyectos con facturas pendientes:
@@ -466,10 +461,10 @@ EXEC DetallesEmpleado @EmpleadoID = 4;
 SELECT 
 	Nombre, 
 	Descripcion
-FROM Proyectos P
-WHERE 
-	P.ProyectoID IN (
-		SELECT F.ProyectoID
-		FROM Facturas F
-		WHERE F.Estado = 'Pendiente'
+FROM Proyectos
+
+WHERE ProyectoID IN (
+		SELECT ProyectoID
+		FROM Facturas 
+		WHERE Estado = 'Pendiente'
     );
